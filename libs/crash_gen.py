@@ -11,9 +11,10 @@ import sys
 import random
 from datetime import datetime
 import json
+import platform
 
 TOTAL_PLUGIN = 0
-def gen_crash_report(SERVER_VERSION):
+def gen_crash_report(SERVER_VERSION, BMC_VERSION, e):
     global TOTAL_PLUGIN
     with open("config.json", "r") as f:
         config = json.loads(f.read())
@@ -32,7 +33,7 @@ def gen_crash_report(SERVER_VERSION):
         for p in os.listdir("plugins"):
             plugin_list += f"- {p}\n"
             TOTAL_PLUGIN += 1
-        json_info = json.dumps({"beaconmc_version": SERVER_VERSION,"os_name": os.name,"date": datetime.now().isoformat(),"python_version": sys.version,"total_plugin": TOTAL_PLUGIN,"traceback_error": traceback.format_exc()})
+        json_info = json.dumps({"mc_version": SERVER_VERSION,"bmc_version": BMC_VERSION, "os_name": os.name,"date": datetime.now().isoformat(),"python_version": sys.version,"total_plugin": TOTAL_PLUGIN, "online_mode": online_mode,"traceback_error": traceback.format_exc(e)})
         f.write(f"""
 =========================================
         BEACON-MC CRASH REPORT
@@ -40,11 +41,12 @@ def gen_crash_report(SERVER_VERSION):
 Something went wrong, please submit the report on the issue tracker.
 https://github.com/BeaconMCDev/BeaconMC/issues/new?assignees=&labels=bug&projects=&template=bug_report.md&title=
 Traceback :
-{traceback.format_exc()}
+{traceback.format_exc(e)}
 =========================================
-OS : {os.name}
+OS : {platform.system()}
 Python Version : {sys.version}
-BeaconMC Version : {SERVER_VERSION} 
+BeaconMC Version : {BMC_VERSION}
+Minecraft Version : {SERVER_VERSION} 
 Plugins List : 
 {plugin_list}
 Date : {datetime.now()}
@@ -56,12 +58,12 @@ JSON Info :
         """)
     f.close()
     print("\n")
-    print("==========================================")
+    print("================================================================")
     print("BEACON-MC CRASH REPORT")
-    print("> A crash report has been generated in the logs folder.")
+    print("> A crash report has been generated in the crash_reports folder.")
     print("> Please submit the report on the issue tracker.")
     print("> Thank ^^")
-    print("==========================================")
+    print("================================================================")
     print(f"Crash report saved on logs/{datetime.timestamp(datetime.now())}")
 
     print(f"ERR : {traceback.format_exc()}")

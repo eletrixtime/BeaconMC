@@ -372,6 +372,10 @@ class MCServer(object):
         try:
             while state == "ON":
                 tm.sleep(0.1)
+                for p in self.list_clients:
+                    p: Client
+                    if not p.connected:
+                        self.list_clients.remove(p)
         except KeyboardInterrupt:
             self.stop()
             exit(0)
@@ -416,6 +420,15 @@ class MCServer(object):
         """Generate a crash report
         Arg:
         - reason: str --> The crash message"""
+        if e == None:
+            try:
+                raise Exception(reason)
+            except Exception as e:
+                pass
+        crash_gen(CLIENT_VERSION, SERVER_VERSION, e)
+        
+        return
+        raise DepreciationWarning("This code should be unreachable, please report us this.")
         c = 0
         try:
             import datetime
@@ -520,6 +533,24 @@ class MCServer(object):
 class PacketException(Exception):
     pass
 
+class PrefixedArray(object):
+    def __init__(self, array:tuple|list):
+        self.data = []
+        for i in array:
+            self.data.append(i)
+        self.lenth = len(self.data)
+        
+    def happend(self, data):
+        self.data.happend(data)
+        
+    def encode(self):
+        self.lenth = len(self.data)
+        elenth = Packet(None, None).pack_varint(self.lenth)
+        prefixlenth = Packet(None, None).pack_varint(len(elenth))
+        end = prefixlenth + elenth
+        for i in self.data:
+            end += Packet(None, None).pack(i)
+        return end
 
 class Packet(object):
     # DANGER | DO NOT TOUCH
@@ -622,6 +653,8 @@ class Packet(object):
     def pack(self, i) -> bytes:
         if isinstance(i, int):
             return self.pack_varint(i)
+        elif isinstance(i, PrefixedArray):
+            return i.encode()
         elif isinstance(i, UUID):
             return self.pack_uuid(i.uuid)
         elif isinstance(i, bool):
@@ -745,19 +778,24 @@ class Client(object):
                 return
 
             self.properties = api_response["properties"]
-            enc_properties = []
-            print(len(self.properties))
+            
+            list_prop = []
             for p in self.properties:
-                enc_properties.append(["name"])
-                enc_properties.append(["value"])
-                enc_properties.append(["signed"])
-                print(p["signed"])
-                print(type(p["signed"]))
-            parg = [UUID(self.uuid), self.username, len(enc_properties)]
-            for p in enc_properties:
-                parg.append(p)
+                list_prop.append("name")
+                list_prop.append(p["name"])
+                list_prop.append("value")
+                list_prop.append(p["value"])
+                try:
+                    sig = p["signature"] # potential kry error
+                    list_prop.append("signature") 
+                    list_prop.append(sig)
+                except KeyError:
+                    pass
+            array = PrefixedArray(list_prop)
+            parg = [UUID(self.uuid), self.username, array]
+            
         else:
-            parg = [UUID(self.uuid), self.username, 0, []]
+            parg = [UUID(self.uuid), self.username, PrefixedArray(["name", "textures", "value", "eyJ0aW1lc3RhbXAiOjE1OTAwMDAwMDAsInByb2ZpbGVJZCI6IjAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAiLCJwcm9wZXJ0aWVzIjpbeyJrZXkiOiJUZXh0dXJlcyIsInZhbHVlIjoieyJTS0lOIjp7InVybCI6Imh0dHBzOi8vc2Vzc2lvbnMubWluZWNyYWZ0Lm5ldC90ZXh0dXJlLzE2YTQ4Njc0YzMwMmRjM2VhNzZjZmZhZjMyMmQ5MmJmZjBjMDI5ZTZhOGY4MTk4ZDczZjMzYjRhZDdkMzY2ZjAifX19"])]
         
         response = Packet(self.connexion, "-OUTGOING", 2, args=parg)
         log(response.__repr__(), 3)
